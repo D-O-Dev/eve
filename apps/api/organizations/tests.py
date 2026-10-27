@@ -55,3 +55,23 @@ class CreateCompanyTests(TestCase):
         self.assertEqual(statuts["commerce"], "available")
         for code in ("restauration", "services", "transport", "numerique"):
             self.assertEqual(statuts[code], "coming_soon")
+            
+class MembershipIntegrityTests(TestCase):
+    def setUp(self):
+        self.a = User.objects.create_user("a@example.com", "x")
+        self.b = User.objects.create_user("b@example.com", "x")
+        self.company_a = create_company(user=self.a, name="A", sector_code="commerce")
+        self.company_b = create_company(user=self.b, name="B", sector_code="commerce")
+
+    def test_etablissement_dune_autre_entreprise_refuse(self):
+        m = Membership.objects.get(user=self.a, company=self.company_a)
+        m.establishment = self.company_b.establishments.get()
+        with self.assertRaises(ValueError):
+            m.save()
+
+    def test_etablissement_de_la_meme_entreprise_accepte(self):
+        m = Membership.objects.get(user=self.a, company=self.company_a)
+        m.establishment = self.company_a.establishments.get()
+        m.save()
+        m.refresh_from_db()
+        self.assertEqual(m.establishment.company_id, self.company_a.id)

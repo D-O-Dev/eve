@@ -59,3 +59,8 @@ class Membership(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "company"], name="one_membership_per_user_company"),
         ]
+        
+    def save(self, *args, **kwargs):
+        if self.establishment_id and self.establishment.company_id != self.company_id:
+            raise ValueError("L’établissement doit appartenir à la même entreprise.")
+        super().save(*args, **kwargs)
