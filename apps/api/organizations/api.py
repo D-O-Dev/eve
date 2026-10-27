@@ -1,6 +1,5 @@
 from uuid import UUID
 
-from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
 from ninja.security import django_auth
@@ -9,6 +8,10 @@ from sectors.models import Sector
 
 from .models import Membership
 from .services import SectorNotAvailable, create_company
+
+from billing.services import enabled_modules
+
+from .permissions import authorize, effective_permissions
 
 router = Router(tags=["companies"], auth=django_auth)
 
@@ -61,9 +64,22 @@ def create(request, data: CompanyIn):
 
 @router.get("/{company_id}", response=CompanyOut)
 def get_company(request, company_id: UUID):
-    membership = get_object_or_404(
-        Membership.objects.select_related("company"),
-        user=request.user,
-        company_id=company_id,
-    )
-    return _out(membership)
+    return _out(authorize(request.user, company_id))
+
+class AccessOut(Schema):
+    role: str
+    subscription_status: str
+    modules: list[str]
+    permissions: list[str]
+
+
+@router.get("/{company_id}/access", response=AccessOut)
+def access(request, company_id: UUID):
+    m = authorize(request.user, company_id)
+    sub = getattr(m.company, "subscription", None)
+    return {
+        "role": m.role,
+        "subscription_status": sub.status if sub else "none",
+        "modules": sorted(enabled_modules(m.company)),
+        "permissions": sorted(effective_permissions(m)),
+    }

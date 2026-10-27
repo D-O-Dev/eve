@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'identity',
     'sectors',
     'organizations',
+    'billing',
 ]
 
 MIDDLEWARE = [
